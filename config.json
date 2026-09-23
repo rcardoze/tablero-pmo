@@ -1,0 +1,75 @@
+{
+  "timezone": "America/Panama",
+
+  "portfolio": {
+    "boardId": "18396373679",
+    "phaseColumn": "portfolio_project_step",
+    "healthColumn": "portfolio_project_rag",
+    "typeColumn": "color_mm1tt3c2"
+  },
+
+  "sections": [
+    {
+      "key": "plantillas",
+      "title": "Plantillas y formularios",
+      "mode": "distribution",
+      "collapsed": true,
+      "match": { "folder": "plantilla|formulario", "name": "plantilla|template" }
+    },
+    {
+      "key": "control",
+      "title": "Riesgos, cambios y lecciones",
+      "mode": "distribution",
+      "match": { "folder": "riesgo|riego|cambio|imprevisto|lecci" }
+    },
+    {
+      "key": "portafolio",
+      "title": "Portafolio y solicitudes",
+      "mode": "distribution",
+      "match": { "folder": "portafolio" }
+    },
+    {
+      "key": "recursos",
+      "title": "Recursos PMO",
+      "mode": "distribution",
+      "match": { "folder": "recurso" }
+    },
+    {
+      "key": "tareas",
+      "title": "Tareas y seguimiento",
+      "mode": "progress",
+      "match": { "workspace": "^Ramon$|Actividades" }
+    },
+    {
+      "key": "otros-espacios",
+      "title": "Otros espacios de trabajo (CRM, Mi equipo…)",
+      "mode": "distribution",
+      "collapsed": true,
+      "match": { "workspace": "^(?!PMO|Ramon$|Actividades)" }
+    },
+    {
+      "key": "proyectos",
+      "title": "Proyectos y mejoras",
+      "mode": "progress",
+      "kpi": true,
+      "match": { "folder": "proyecto|mejora|finalizad" }
+    },
+    {
+      "key": "otros",
+      "title": "Otros tableros",
+      "mode": "progress",
+      "match": {}
+    }
+  ],
+
+  "displayOrder": ["proyectos", "tareas", "portafolio", "control", "recursos", "otros", "otros-espacios", "plantillas"],
+
+  "exclude": {
+    "boardIds": [],
+    "namePattern": "^Subelementos de "
+  },
+
+  "statusColumnOverrides": {},
+
+  "staleDays": 21
+}

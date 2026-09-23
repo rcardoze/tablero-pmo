@@ -1,0 +1,59 @@
+name: Actualizar dashboard
+
+on:
+  schedule:
+    # Cada 10 min de 6:00 a 18:59 hora de Panamá (UTC-5), lunes a sábado
+    - cron: "*/10 11-23 * * 1-6"
+    # Cada hora, todo el tiempo
+    - cron: "7 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Pruebas
+        run: node --test scripts/transform.test.mjs
+
+      - name: Leer Monday
+        env:
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+        run: node scripts/fetch-monday.mjs
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      # GitHub apaga los cron de repos sin actividad en 60 días; reactivarlo reinicia ese contador.
+      - name: Mantener activa la actualización automática
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/actualizar-dashboard.yml/enable" || true
