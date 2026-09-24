@@ -503,6 +503,9 @@ export function buildDashboard(raw, config, now = new Date()) {
   const byPerson = new Map();
   const unassigned = { open: 0, overdue: 0, stuck: 0, boards: new Map() };
   const openRank = (a) => (a.overdue ? 0 : a.bucket === 'stuck' ? 1 : a.due ? 2 : 3);
+  // Lo completado en la semana cuenta aunque con eso el tablero haya quedado terminado
+  const doneWeekBy = new Map();
+  for (const a of assignments) if (a.doneWeek) for (const id of a.ownerIds) doneWeekBy.set(id, (doneWeekBy.get(id) ?? 0) + 1);
   for (const a of assignments) {
     if (!activeIds.has(a.boardId)) continue;
     const open = a.bucket !== 'done' && a.bucket !== 'cancelled';
@@ -515,9 +518,8 @@ export function buildDashboard(raw, config, now = new Date()) {
       continue;
     }
     a.ownerIds.forEach((id, i) => {
-      const p = byPerson.get(id) ?? { id, name: a.owners[i], known: userName.has(id), buckets: emptyBuckets(), overdue: 0, doneWeek: 0, boardIds: new Set(), open: [] };
+      const p = byPerson.get(id) ?? { id, name: a.owners[i], known: userName.has(id), buckets: emptyBuckets(), overdue: 0, boardIds: new Set(), open: [] };
       p.buckets[a.bucket]++;
-      if (a.doneWeek) p.doneWeek++;
       p.boardIds.add(a.boardId);
       if (a.overdue) p.overdue++;
       if (open) p.open.push({ name: a.name, url: a.url, board: a.board, boardId: a.boardId, status: a.status, bucket: a.bucket, due: a.due, overdue: a.overdue });
@@ -541,7 +543,7 @@ export function buildDashboard(raw, config, now = new Date()) {
         openCount: p.open.length,
         overdue: p.overdue,
         stuck: p.buckets.stuck,
-        doneWeek: p.doneWeek,
+        doneWeek: doneWeekBy.get(p.id) ?? 0,
         nextDue,
         open: p.open.slice(0, OPEN_LIMIT),
       };

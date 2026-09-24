@@ -249,4 +249,12 @@ test('resume la semana: completadas, nuevas, próximas y avance de hace 7 días'
   assert.equal(Math.round(b.avancePrev * 100), 20, 'hace 7 días: 1 lista de 5 (a,b,d,e,f; c no existía)');
   assert.equal(Math.round(d.totals.avancePrev * 100), 20);
   assert.equal(d.people.find((p) => p.name === 'Ana Pérez').doneWeek, 1);
+
+  // Si con lo completado el tablero queda terminado, igual cuenta para la persona
+  raw.boards.push({ id: '11', name: 'Tareas Y', type: 'board', url: 'b', workspace: { name: 'PMO' }, folder: { name: '🛠️Proyectos' }, columns: cols });
+  raw.itemsByBoard[11] = [it('z', st(1, '2026-09-23T14:00:00Z'), { own: 1 })];
+  const d2 = buildDashboard(raw, config, now);
+  assert.equal(d2.boards.find((x) => x.id === '11').state, 'done');
+  assert.equal(d2.people.find((p) => p.name === 'Ana Pérez').doneWeek, 2);
+  assert.equal(d2.week.completedCount, 3);
 });

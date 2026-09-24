@@ -212,7 +212,12 @@ function renderProjects() {
       b.phase ? h('span', { class: 'pill' }, h('span', { class: 'dotc', vars: { '--c': phaseColor(b.phase) } }), b.phase.label) : h('span', { class: 'muted' }, '—'),
       b.health ? h('span', { class: 'pill' }, ico(HEALTH[sev] ?? 'none'), sev ? b.health.label : 'Sin definir') : h('span', { class: 'muted' }, '—'),
       h('div', { class: 'barcell' }, stackBar(bucketSegs(b.buckets)), h('span', { class: 'p' }, pct(b.avance))),
-      [deltaEl(deltaPts(b.avance, b.avancePrev)), b.doneWeek ? h('span', { class: 'sub' }, plural(b.doneWeek, 'completada', 'completadas')) : null],
+      [
+        deltaEl(deltaPts(b.avance, b.avancePrev)),
+        b.doneWeek || b.newWeek
+          ? h('span', { class: 'sub' }, [b.doneWeek ? plural(b.doneWeek, 'completada', 'completadas') : null, b.newWeek ? plural(b.newWeek, 'nueva', 'nuevas') : null].filter(Boolean).join(' · '))
+          : null,
+      ],
       alerts.length ? h('div', { class: 'alerts' }, alerts) : h('span', { class: 'pill' }, ico('good'), 'Al día'),
     ];
   });
