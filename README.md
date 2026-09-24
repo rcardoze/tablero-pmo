@@ -4,10 +4,10 @@ Dashboard en vivo con el estado de **todos** los tableros de Monday de la PMO: a
 
 ## Cómo funciona
 
-1. Una GitHub Action (`.github/workflows/actualizar-dashboard.yml`) corre cada 15 minutos, todos los días (GitHub puede retrasarla unos minutos en horas de alta demanda). Para ver un cambio al instante: pestaña **Actions** → **Actualizar dashboard** → **Run workflow**.
+1. Una GitHub Action (`.github/workflows/actualizar-dashboard.yml`) corre cada 5 minutos, todos los días. La dispara [cron-job.org](https://cron-job.org) por la API de GitHub (ver [Disparo cada 5 minutos](#disparo-cada-5-minutos)); el horario propio de GitHub queda solo de respaldo porque lo ejecuta de forma irregular. Para ver un cambio al instante: pestaña **Actions** → **Actualizar dashboard** → **Run workflow**.
 2. `scripts/fetch-monday.mjs` lee por la API de Monday todos los tableros a los que tiene acceso el token y genera `site/data.json`.
 3. `scripts/pdf.mjs` arma el reporte semanal (`site/reporte.html`) con los mismos datos y lo guarda como `site/reporte-semanal.pdf` usando Chrome.
-4. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada 2 minutos, así que puede quedar abierta en una pantalla.
+4. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada minuto, así que puede quedar abierta en una pantalla. Si pasan 30 minutos sin datos nuevos muestra un aviso.
 
 Los tableros nuevos aparecen solos: no hay que registrarlos en ningún lado.
 
@@ -42,6 +42,19 @@ La Action necesita un token de la API de Monday guardado como secreto del reposi
    y pegar el token cuando lo pida.
 
 El dashboard muestra lo que ve el dueño del token. Si alguien más debe mantenerlo, hay que cambiar el secreto por un token suyo.
+
+## Disparo cada 5 minutos
+
+GitHub no respeta los horarios cortos de sus Actions (a veces pasan horas entre corridas), así que el disparo lo hace un servicio externo gratuito:
+
+1. **Token de GitHub** (solo puede disparar esta Action): GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token. Repository access: *Only select repositories* → `tablero-pmo`. Permissions → Repository → **Actions: Read and write**. Nada más.
+2. **cron-job.org** → Create cronjob:
+   - URL: `https://api.github.com/repos/rcardoze/tablero-pmo/actions/workflows/actualizar-dashboard.yml/dispatches`
+   - Execution schedule: cada 5 minutos.
+   - Advanced → Request method: **POST**. Headers: `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`. Request body: `{"ref":"main"}`.
+   - GitHub responde `204` cuando lo acepta.
+
+Cuando el token venza, GitHub avisa por correo: se genera uno nuevo igual y se reemplaza en cron-job.org.
 
 ## Forzar una actualización
 
