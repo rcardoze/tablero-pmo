@@ -54,7 +54,7 @@ async function gql(query, variables = {}) {
 
 const BOARDS_QUERY = `query ($page: Int!) {
   boards(limit: 50, page: $page, state: active) {
-    id name type hierarchy_type items_count updated_at url
+    id name type board_kind hierarchy_type items_count updated_at url
     workspace { id name }
     folder { id name parent { id name } }
     columns(types: [status, timeline, date, people]) { id title type settings }
@@ -153,7 +153,10 @@ async function main() {
   let calls = 0;
   countCall = () => calls++;
 
-  const boards = (await fetchAllBoards()).filter((b) => !b.type || b.type === 'board');
+  // Los tableros privados nunca se leen ni se publican (config.exclude.privateBoards)
+  const boards = (await fetchAllBoards()).filter(
+    (b) => (!b.type || b.type === 'board') && !(config.exclude?.privateBoards && b.board_kind === 'private'),
+  );
   console.log(`Tableros encontrados: ${boards.length}`);
   const users = await fetchUsers();
 

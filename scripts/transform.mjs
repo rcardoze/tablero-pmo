@@ -253,6 +253,7 @@ export function buildDashboard(raw, config, now = new Date()) {
   for (const b of raw.boards) {
     if (b.type && b.type !== 'board') continue;
     if (excludeIds.has(String(b.id)) || (excludeRe && excludeRe.test(b.name))) continue;
+    if (config.exclude?.privateBoards && b.board_kind === 'private') continue;
 
     const section = sectionFor(b, sectionsCfg, config.portfolio?.boardId);
     const items = raw.itemsByBoard[b.id] ?? [];

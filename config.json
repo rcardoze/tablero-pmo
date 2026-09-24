@@ -69,6 +69,7 @@
   "displayOrder": ["proyectos", "tareas", "portafolio", "control", "recursos", "otros", "otros-espacios", "plantillas"],
 
   "exclude": {
+    "privateBoards": true,
     "boardIds": [],
     "namePattern": "^Subelementos de "
   },

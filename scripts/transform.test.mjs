@@ -191,6 +191,7 @@ test('manda plantillas y tableros de prueba fuera de los indicadores', () => {
       { id: '3', name: '🛠️ PMO-25-11 Remodelación MOTI  - TT', type: 'board', url: 'x', workspace: ws, folder: { name: '2025 Proyectos' }, columns: [stage] },
       { id: config.portfolio.boardId, name: 'Portafolio 2026', type: 'board', url: 'x', workspace: ws, folder: { name: '📊Portafolio' }, columns: [stage] },
       { id: '5', name: '🛠️ Laboratorio PMO-25-04', type: 'board', url: 'x', workspace: ws, folder: { name: '🛠️Proyectos' }, columns: [] },
+      { id: '6', name: 'To Dos-', type: 'board', board_kind: 'private', url: 'x', workspace: { name: 'Ramon' }, columns: [] },
     ],
     itemsByBoard: {},
   };
@@ -201,4 +202,5 @@ test('manda plantillas y tableros de prueba fuera de los indicadores', () => {
   assert.equal(sec['3'], 'plantillas');
   assert.equal(sec[config.portfolio.boardId], 'portafolio', 'el portafolio real no es plantilla');
   assert.equal(sec['5'], 'proyectos');
+  assert.ok(!sec['6'], 'los tableros privados no se publican');
 });

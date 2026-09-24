@@ -44,6 +44,7 @@ gh workflow run actualizar-dashboard.yml
 
 - `sections`: reglas para agrupar tableros por carpeta, nombre o espacio de trabajo (se evalúan en orden; la primera que coincide gana). `mode: "progress"` muestra avance; `"distribution"` muestra el reparto de estados. `kpi: true` hace que la sección cuente en los números principales.
 - `displayOrder`: orden en que se muestran las secciones.
+- `exclude.privateBoards`: con `true` (por defecto) los tableros privados de Monday nunca se publican.
 - `exclude.boardIds`: IDs de tableros a ocultar (el ID es el número en la URL del tablero).
 - `statusColumnOverrides`: `{ "<id del tablero>": "<id de la columna>" }` si el script eligió la columna de estado equivocada.
 - `peopleColumnOverrides`: igual que el anterior, para la columna de responsable.
