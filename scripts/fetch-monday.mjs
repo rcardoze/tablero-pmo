@@ -9,7 +9,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, process.env.OUT_FILE ?? 'site/data.json');
 const TOKEN = process.env.MONDAY_API_TOKEN;
 const API_VERSION = process.env.MONDAY_API_VERSION || '';
-const CONCURRENCY = 3;
+const CONCURRENCY = 2;
+const BATCH_SIZE = 10; // tableros por consulta, para gastar pocas llamadas del límite diario de Monday
+const BATCH_MAX_ITEMS = 400;
 
 if (!TOKEN) {
   console.error('Falta la variable MONDAY_API_TOKEN.');
@@ -18,7 +20,10 @@ if (!TOKEN) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+let countCall = () => {};
+
 async function gql(query, variables = {}) {
+  countCall();
   let lastError;
   for (let attempt = 0; attempt < 6; attempt++) {
     const res = await fetch('https://api.monday.com/v2', {
@@ -62,8 +67,8 @@ const ITEM_FIELDS = `cursor items {
   column_values(ids: $cols, capabilities: [CALCULATED]) { id value }
 }`;
 
-const FIRST_PAGE = `query ($id: [ID!], $cols: [String!]) {
-  boards(ids: $id) { items_page(limit: 500, hierarchy_scope_config: "allItems") { ${ITEM_FIELDS} } }
+const FIRST_PAGE = `query ($ids: [ID!], $cols: [String!]) {
+  boards(ids: $ids) { id items_page(limit: 500, hierarchy_scope_config: "allItems") { ${ITEM_FIELDS} } }
 }`;
 
 const NEXT_PAGE = `query ($cursor: String!, $cols: [String!]) {
@@ -92,16 +97,40 @@ async function fetchUsers() {
   return all;
 }
 
-async function fetchItems(board, cols) {
-  const items = [];
-  const first = await gql(FIRST_PAGE, { id: [board.id], cols });
-  let page = first.boards[0]?.items_page;
-  while (page) {
-    items.push(...page.items);
-    if (!page.cursor) break;
-    page = (await gql(NEXT_PAGE, { cursor: page.cursor, cols })).next_items_page;
+// Lee los elementos de varios tableros en una sola consulta; pagina aparte los que tengan más de 500.
+async function fetchItemsBatch(batch) {
+  const cols = [...new Set(batch.flatMap((x) => x.cols))];
+  const first = await gql(FIRST_PAGE, { ids: batch.map((x) => x.board.id), cols });
+  const out = {};
+  for (const b of first.boards ?? []) {
+    const items = [];
+    let page = b.items_page;
+    while (page) {
+      items.push(...page.items);
+      if (!page.cursor) break;
+      page = (await gql(NEXT_PAGE, { cursor: page.cursor, cols })).next_items_page;
+    }
+    out[b.id] = items;
   }
-  return items;
+  return out;
+}
+
+function makeBatches(jobs) {
+  const batches = [];
+  let cur = [];
+  let size = 0;
+  for (const job of jobs) {
+    const n = job.board.items_count ?? 0;
+    if (cur.length && (cur.length >= BATCH_SIZE || size + n > BATCH_MAX_ITEMS)) {
+      batches.push(cur);
+      cur = [];
+      size = 0;
+    }
+    cur.push(job);
+    size += n;
+  }
+  if (cur.length) batches.push(cur);
+  return batches;
 }
 
 async function mapLimit(list, limit, fn) {
@@ -121,6 +150,8 @@ async function mapLimit(list, limit, fn) {
 async function main() {
   const config = JSON.parse(await readFile(resolve(ROOT, 'config.json'), 'utf8'));
   const started = Date.now();
+  let calls = 0;
+  countCall = () => calls++;
 
   const boards = (await fetchAllBoards()).filter((b) => !b.type || b.type === 'board');
   console.log(`Tableros encontrados: ${boards.length}`);
@@ -128,7 +159,7 @@ async function main() {
 
   const itemsByBoard = {};
   const errors = [];
-  await mapLimit(boards, CONCURRENCY, async (b) => {
+  const jobs = boards.map((b) => {
     const status = pickStatusColumn(b.columns ?? [], config.statusColumnOverrides?.[b.id]);
     const due = pickDueColumn(b.columns ?? []);
     const people = pickPeopleColumn(b.columns ?? [], config.peopleColumnOverrides?.[b.id]);
@@ -137,11 +168,21 @@ async function main() {
       const p = config.portfolio;
       cols.push(p.phaseColumn, p.healthColumn, p.typeColumn);
     }
+    return { board: b, cols };
+  });
+  await mapLimit(makeBatches(jobs), CONCURRENCY, async (batch) => {
     try {
-      itemsByBoard[b.id] = await fetchItems(b, [...new Set(cols)]);
+      Object.assign(itemsByBoard, await fetchItemsBatch(batch));
     } catch (e) {
-      errors.push({ boardId: String(b.id), board: b.name, message: e.message });
-      console.warn(`No se pudo leer "${b.name}": ${e.message}`);
+      // Si falla el grupo, se reintenta tablero por tablero para aislar el problema
+      for (const job of batch) {
+        try {
+          Object.assign(itemsByBoard, await fetchItemsBatch([job]));
+        } catch (err) {
+          errors.push({ boardId: String(job.board.id), board: job.board.name, message: err.message });
+          console.warn(`No se pudo leer "${job.board.name}": ${err.message}`);
+        }
+      }
     }
   });
 
@@ -158,7 +199,7 @@ async function main() {
     `- Detenidas: ${t.stuck} · vencidas: ${t.overdue}`,
     `- Personas con entregables: ${data.people.length} · sin responsable: ${data.unassigned.open}`,
     `- Errores: ${errors.length}${errors.map((e) => `\n  - ${e.board}: ${e.message}`).join('')}`,
-    `- Duración: ${Math.round((Date.now() - started) / 1000)} s`,
+    `- Consultas a Monday: ${calls} · duración: ${Math.round((Date.now() - started) / 1000)} s`,
   ].join('\n');
   console.log(summary);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
