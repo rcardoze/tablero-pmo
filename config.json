@@ -11,10 +11,14 @@
   "sections": [
     {
       "key": "plantillas",
-      "title": "Plantillas y formularios",
+      "title": "Plantillas, pruebas y formularios",
       "mode": "distribution",
       "collapsed": true,
-      "match": { "folder": "plantilla|formulario", "name": "plantilla|template" }
+      "match": {
+        "folder": "plantilla|formulario|proyectos multiples",
+        "name": "plantilla|template|^proyecto (alfa|beta|d)$|^mejoras rev",
+        "hasColumn": "portfolio_project_step"
+      }
     },
     {
       "key": "control",

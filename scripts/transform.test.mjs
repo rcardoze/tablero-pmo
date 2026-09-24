@@ -180,3 +180,25 @@ test('agrupa entregables por persona y hereda el responsable del padre', () => {
   assert.equal(d.unassigned.open, 1);
   assert.deepEqual(d.attention.stuck[0].owners, ['Rcardoze']);
 });
+
+test('manda plantillas y tableros de prueba fuera de los indicadores', () => {
+  const ws = { name: 'PMO: Project Management Office' };
+  const stage = { id: 'portfolio_project_step', title: 'Stage', type: 'status', settings: { labels: [] } };
+  const raw = {
+    boards: [
+      { id: '1', name: 'Proyecto Alfa', type: 'board', url: 'x', workspace: ws, folder: { name: 'Proyectos múltiples' }, columns: [] },
+      { id: '2', name: 'Mejoras Rev. 3 09/26', type: 'board', url: 'x', workspace: ws, folder: { name: '🚀Mejoras' }, columns: [stage] },
+      { id: '3', name: '🛠️ PMO-25-11 Remodelación MOTI  - TT', type: 'board', url: 'x', workspace: ws, folder: { name: '2025 Proyectos' }, columns: [stage] },
+      { id: config.portfolio.boardId, name: 'Portafolio 2026', type: 'board', url: 'x', workspace: ws, folder: { name: '📊Portafolio' }, columns: [stage] },
+      { id: '5', name: '🛠️ Laboratorio PMO-25-04', type: 'board', url: 'x', workspace: ws, folder: { name: '🛠️Proyectos' }, columns: [] },
+    ],
+    itemsByBoard: {},
+  };
+  const d = buildDashboard(raw, config, new Date('2026-09-23T23:00:00Z'));
+  const sec = Object.fromEntries(d.boards.map((b) => [b.id, b.section]));
+  assert.equal(sec['1'], 'plantillas');
+  assert.equal(sec['2'], 'plantillas');
+  assert.equal(sec['3'], 'plantillas');
+  assert.equal(sec[config.portfolio.boardId], 'portafolio', 'el portafolio real no es plantilla');
+  assert.equal(sec['5'], 'proyectos');
+});

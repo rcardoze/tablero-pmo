@@ -193,8 +193,10 @@ function dueOf(item, col) {
 
 // ---------- Secciones ----------
 
-function sectionFor(board, sections) {
+function sectionFor(board, sections, portfolioId) {
   const folderNames = [board.folder?.name, board.folder?.parent?.name].filter(Boolean).join(' / ');
+  // Tableros creados con la plantilla de portafolio (columnas RAG/Stage) que no son el portafolio real
+  const hasColumn = (id) => String(board.id) !== String(portfolioId) && (board.columns ?? []).some((c) => c.id === id);
   for (const s of sections) {
     const m = s.match ?? {};
     const keys = Object.keys(m);
@@ -202,7 +204,8 @@ function sectionFor(board, sections) {
     const hit =
       (m.folder && folderNames && new RegExp(m.folder, 'i').test(norm(folderNames))) ||
       (m.name && new RegExp(m.name, 'i').test(norm(board.name))) ||
-      (m.workspace && new RegExp(m.workspace, 'i').test(board.workspace?.name ?? ''));
+      (m.workspace && new RegExp(m.workspace, 'i').test(board.workspace?.name ?? '')) ||
+      (m.hasColumn && hasColumn(m.hasColumn));
     if (hit) return s;
   }
   return sections[sections.length - 1];
@@ -251,7 +254,7 @@ export function buildDashboard(raw, config, now = new Date()) {
     if (b.type && b.type !== 'board') continue;
     if (excludeIds.has(String(b.id)) || (excludeRe && excludeRe.test(b.name))) continue;
 
-    const section = sectionFor(b, sectionsCfg);
+    const section = sectionFor(b, sectionsCfg, config.portfolio?.boardId);
     const items = raw.itemsByBoard[b.id] ?? [];
     const statusCol = pickStatusColumn(b.columns ?? [], config.statusColumnOverrides?.[b.id]);
     const dueCol = pickDueColumn(b.columns ?? []);
@@ -301,7 +304,7 @@ export function buildDashboard(raw, config, now = new Date()) {
       const due = dueOf(it, dueCol);
       const open = st.bucket !== 'done' && st.bucket !== 'cancelled';
       const ownerIds = ownersOf(it);
-      const owners = ownerIds.map((id) => userName.get(id) ?? `Usuario ${id}`);
+      const owners = ownerIds.map((id) => userName.get(id) ?? 'Miembro eliminado');
       const isOverdue = open && !!due && due < today;
       const base = { name: it.name, url: it.url, board: b.name, boardId: String(b.id), status: st.label, owners };
       if (isOverdue) {
@@ -481,7 +484,7 @@ export function buildDashboard(raw, config, now = new Date()) {
       continue;
     }
     a.ownerIds.forEach((id, i) => {
-      const p = byPerson.get(id) ?? { id, name: a.owners[i], buckets: emptyBuckets(), overdue: 0, boardIds: new Set(), open: [] };
+      const p = byPerson.get(id) ?? { id, name: a.owners[i], known: userName.has(id), buckets: emptyBuckets(), overdue: 0, boardIds: new Set(), open: [] };
       p.buckets[a.bucket]++;
       p.boardIds.add(a.boardId);
       if (a.overdue) p.overdue++;
@@ -490,6 +493,8 @@ export function buildDashboard(raw, config, now = new Date()) {
     });
   }
   const people = [...byPerson.values()]
+    // Usuarios eliminados de Monday solo se muestran si todavía tienen entregables abiertos
+    .filter((p) => p.known || p.open.length)
     .map((p) => {
       p.open.sort((x, y) => openRank(x) - openRank(y) || (x.due ?? '9').localeCompare(y.due ?? '9'));
       const countable = Object.values(p.buckets).reduce((n, v) => n + v, 0) - p.buckets.cancelled;
