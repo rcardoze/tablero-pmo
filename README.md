@@ -4,9 +4,9 @@ Dashboard en vivo con el estado de **todos** los tableros de Monday de la PMO: a
 
 ## Cómo funciona
 
-1. Una GitHub Action (`.github/workflows/actualizar-dashboard.yml`) corre cada 10 minutos de 6:00 a 19:00 (hora de Panamá, lunes a sábado) y cada hora el resto del tiempo.
+1. Una GitHub Action (`.github/workflows/actualizar-dashboard.yml`) corre cada 15 minutos, todos los días (GitHub puede retrasarla unos minutos en horas de alta demanda). Para ver un cambio al instante: pestaña **Actions** → **Actualizar dashboard** → **Run workflow**.
 2. `scripts/fetch-monday.mjs` lee por la API de Monday todos los tableros a los que tiene acceso el token y genera `site/data.json`.
-3. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada 5 minutos, así que puede quedar abierta en una pantalla.
+3. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada 2 minutos, así que puede quedar abierta en una pantalla.
 
 Los tableros nuevos aparecen solos: no hay que registrarlos en ningún lado.
 

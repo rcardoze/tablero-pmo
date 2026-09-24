@@ -1,7 +1,7 @@
 'use strict';
 
-const REFRESH_MS = 5 * 60 * 1000;
-const STALE_MS = 3 * 60 * 60 * 1000;
+const REFRESH_MS = 2 * 60 * 1000;
+const STALE_MS = 60 * 60 * 1000;
 
 const BUCKET_VAR = {
   done: '--c-done',
@@ -709,7 +709,7 @@ function renderFooter() {
   const errs = data.errors ?? [];
   f.replaceChildren(
     ...[
-      h('div', null, 'Fuente: Monday.com. El tablero se actualiza solo (cada 10 min en horario laboral, cada hora el resto del tiempo) y esta página recarga los datos cada 5 min.'),
+      h('div', null, 'Fuente: Monday.com. Los datos se actualizan solos cada 15 min aprox. y esta página los recarga sola, sin necesidad de refrescar.'),
       h('div', null, 'Avance = tareas completadas ÷ tareas totales, sin contar canceladas. En tableros multinivel se cuentan las subtareas (no los elementos padre).'),
       errs.length ? h('div', null, `No se pudieron leer ${errs.length} tablero(s): ${errs.map((e) => e.board).join(', ')}.`) : null,
     ].filter(Boolean),

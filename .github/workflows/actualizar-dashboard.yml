@@ -2,10 +2,8 @@ name: Actualizar dashboard
 
 on:
   schedule:
-    # Cada 10 min de 6:00 a 18:59 hora de Panamá (UTC-5), lunes a sábado
-    - cron: "*/10 11-23 * * 1-6"
-    # Cada hora, todo el tiempo
-    - cron: "7 * * * *"
+    # Cada 15 min, todos los días (GitHub puede retrasarlo unos minutos en horas de alta demanda)
+    - cron: "*/15 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
