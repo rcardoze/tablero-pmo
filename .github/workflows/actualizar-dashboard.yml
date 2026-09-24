@@ -1,8 +1,8 @@
 name: Actualizar dashboard
 
 on:
-  # El disparo principal viene de cron-job.org cada 5 min (workflow_dispatch por la API).
-  # Este horario es solo de respaldo: GitHub lo ejecuta de forma irregular, a veces con horas de atraso.
+  # Se pide cada 15 min (en minutos de menos demanda), pero GitHub lo ejecuta de forma irregular,
+  # a veces con horas entre corridas. Para más frecuencia ver "Disparo cada 5 minutos" en el README.
   schedule:
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:

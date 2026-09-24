@@ -4,10 +4,10 @@ Dashboard en vivo con el estado de **todos** los tableros de Monday de la PMO: a
 
 ## Cómo funciona
 
-1. Una GitHub Action (`.github/workflows/actualizar-dashboard.yml`) corre cada 5 minutos, todos los días. La dispara [cron-job.org](https://cron-job.org) por la API de GitHub (ver [Disparo cada 5 minutos](#disparo-cada-5-minutos)); el horario propio de GitHub queda solo de respaldo porque lo ejecuta de forma irregular. Para ver un cambio al instante: pestaña **Actions** → **Actualizar dashboard** → **Run workflow**.
+1. Una GitHub Action (`.github/workflows/actualizar-dashboard.yml`) está programada cada 15 minutos, pero GitHub la ejecuta de forma irregular (a veces pasan horas entre corridas). Para ver un cambio al instante: pestaña **Actions** → **Actualizar dashboard** → **Run workflow**. Si se necesita una frecuencia fija, ver [Disparo cada 5 minutos](#disparo-cada-5-minutos).
 2. `scripts/fetch-monday.mjs` lee por la API de Monday todos los tableros a los que tiene acceso el token y genera `site/data.json`.
 3. `scripts/pdf.mjs` arma el reporte semanal (`site/reporte.html`) con los mismos datos y lo guarda como `site/reporte-semanal.pdf` usando Chrome.
-4. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada minuto, así que puede quedar abierta en una pantalla. Si pasan 30 minutos sin datos nuevos muestra un aviso.
+4. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada minuto, así que puede quedar abierta en una pantalla. Si pasa una hora sin datos nuevos muestra un aviso.
 
 Los tableros nuevos aparecen solos: no hay que registrarlos en ningún lado.
 
@@ -43,9 +43,9 @@ La Action necesita un token de la API de Monday guardado como secreto del reposi
 
 El dashboard muestra lo que ve el dueño del token. Si alguien más debe mantenerlo, hay que cambiar el secreto por un token suyo.
 
-## Disparo cada 5 minutos
+## Disparo cada 5 minutos (opcional, no configurado)
 
-GitHub no respeta los horarios cortos de sus Actions (a veces pasan horas entre corridas), así que el disparo lo hace un servicio externo gratuito:
+GitHub no respeta los horarios cortos de sus Actions (a veces pasan horas entre corridas). Para una frecuencia fija se puede usar un servicio externo gratuito:
 
 1. **Token de GitHub** (solo puede disparar esta Action): GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token. Repository access: *Only select repositories* → `tablero-pmo`. Permissions → Repository → **Actions: Read and write**. Nada más.
 2. **cron-job.org** → Create cronjob:
