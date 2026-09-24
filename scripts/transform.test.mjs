@@ -204,3 +204,49 @@ test('manda plantillas y tableros de prueba fuera de los indicadores', () => {
   assert.equal(sec['5'], 'proyectos');
   assert.ok(!sec['6'], 'los tableros privados no se publican');
 });
+
+test('resume la semana: completadas, nuevas, próximas y avance de hace 7 días', () => {
+  const now = new Date('2026-09-24T15:00:00Z'); // 24-sep 10:00 a. m. en Panamá
+  const cols = [
+    { id: 'status', title: 'Estado', type: 'status', settings: { labels: [
+      { id: 0, label: 'En curso' }, { id: 1, label: 'Listo', is_done: true }, { id: 2, label: 'Cancelado' } ] } },
+    { id: 'timeline', title: 'Cronograma', type: 'timeline' },
+    { id: 'person', title: 'Responsable', type: 'people' },
+  ];
+  const st = (index, changed_at) => JSON.stringify({ index, changed_at });
+  const it = (id, status, { created = '2026-08-01T00:00:00Z', due, own } = {}) => ({
+    id, name: `T ${id}`, url: `u/${id}`, created_at: created, updated_at: '2026-09-23T00:00:00Z', parent_item: null,
+    column_values: [
+      { id: 'status', value: status },
+      { id: 'timeline', value: due ? tl(due) : null },
+      { id: 'person', value: own ? JSON.stringify({ personsAndTeams: [{ id: own, kind: 'person' }] }) : null },
+    ],
+  });
+  const raw = {
+    users: [{ id: '1', name: 'Ana Pérez' }],
+    boards: [{ id: '10', name: 'Proyecto X', type: 'board', url: 'b', workspace: { name: 'PMO' }, folder: { name: '🛠️Proyectos' }, columns: cols }],
+    itemsByBoard: {
+      10: [
+        it('a', st(1, '2026-08-10T00:00:00Z')),                     // lista desde antes
+        it('b', st(1, '2026-09-22T14:00:00Z'), { own: 1 }),          // completada esta semana
+        it('c', st(1, '2026-09-23T14:00:00Z'), { created: '2026-09-20T00:00:00Z' }), // nueva y completada
+        it('d', st(0, '2026-09-01T00:00:00Z'), { due: '2026-09-28', own: 1 }), // vence la próxima semana
+        it('e', st(0, '2026-09-01T00:00:00Z'), { due: '2026-10-15' }), // vence después
+        it('f', st(2, '2026-09-21T00:00:00Z')),                     // cancelada esta semana: antes contaba
+      ],
+    },
+  };
+  const d = buildDashboard(raw, config, now);
+  assert.equal(d.week.fromDate, '2026-09-17');
+  assert.equal(d.week.completedCount, 2);
+  assert.deepEqual(d.week.completed.map((x) => x.name), ['T c', 'T b'], 'lo más reciente primero');
+  assert.equal(d.week.created, 1);
+  assert.deepEqual(d.week.dueNext.map((x) => [x.name, x.due]), [['T d', '2026-09-28']]);
+
+  const b = d.boards[0];
+  assert.equal(b.doneWeek, 2);
+  assert.equal(Math.round(b.avance * 100), 60, '3 listas de 5 (sin la cancelada)');
+  assert.equal(Math.round(b.avancePrev * 100), 20, 'hace 7 días: 1 lista de 5 (a,b,d,e,f; c no existía)');
+  assert.equal(Math.round(d.totals.avancePrev * 100), 20);
+  assert.equal(d.people.find((p) => p.name === 'Ana Pérez').doneWeek, 1);
+});

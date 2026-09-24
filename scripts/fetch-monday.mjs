@@ -62,7 +62,7 @@ const BOARDS_QUERY = `query ($page: Int!) {
 }`;
 
 const ITEM_FIELDS = `cursor items {
-  id name url updated_at
+  id name url created_at updated_at
   parent_item { id }
   column_values(ids: $cols, capabilities: [CALCULATED]) { id value }
 }`;

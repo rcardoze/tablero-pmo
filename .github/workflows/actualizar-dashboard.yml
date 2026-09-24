@@ -31,6 +31,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
 
       - name: Pruebas
         run: node --test scripts/transform.test.mjs
@@ -40,7 +41,17 @@ jobs:
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
         run: node scripts/fetch-monday.mjs
 
-      - uses: actions/configure-pages@v5
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      # Si el PDF falla, el tablero se publica igual y su botón abre la versión para imprimir
+      - name: Reporte semanal en PDF
+        continue-on-error: true
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}/
+        run: |
+          npm ci --no-audit --no-fund
+          node scripts/pdf.mjs
 
       - uses: actions/upload-pages-artifact@v4
         with:

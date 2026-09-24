@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reporte semanal PMO</title>
+  <meta name="description" content="Resumen de los últimos 7 días de los tableros de Monday de la PMO." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='18' width='6' height='11' rx='2' fill='%230ca30c'/%3E%3Crect x='13' y='10' width='6' height='19' rx='2' fill='%232a78d6'/%3E%3Crect x='23' y='4' width='6' height='25' rx='2' fill='%23d03b3b'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="reporte.css" />
+</head>
+<body>
+  <nav class="toolbar" aria-label="Acciones del reporte">
+    <a href="./">← Volver al tablero</a>
+    <div class="toolbar-right">
+      <a class="btn" id="pdf-link" href="reporte-semanal.pdf" download hidden>Descargar PDF</a>
+      <button class="btn" id="print-btn" type="button">Imprimir o guardar como PDF</button>
+    </div>
+  </nav>
+  <main class="sheet" id="report" aria-busy="true">
+    <p class="loading">Cargando datos de Monday…</p>
+  </main>
+  <script src="reporte.js" defer></script>
+</body>
+</html>

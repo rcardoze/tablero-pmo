@@ -6,9 +6,29 @@ Dashboard en vivo con el estado de **todos** los tableros de Monday de la PMO: a
 
 1. Una GitHub Action (`.github/workflows/actualizar-dashboard.yml`) corre cada 15 minutos, todos los días (GitHub puede retrasarla unos minutos en horas de alta demanda). Para ver un cambio al instante: pestaña **Actions** → **Actualizar dashboard** → **Run workflow**.
 2. `scripts/fetch-monday.mjs` lee por la API de Monday todos los tableros a los que tiene acceso el token y genera `site/data.json`.
-3. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada 2 minutos, así que puede quedar abierta en una pantalla.
+3. `scripts/pdf.mjs` arma el reporte semanal (`site/reporte.html`) con los mismos datos y lo guarda como `site/reporte-semanal.pdf` usando Chrome.
+4. La carpeta `site/` se publica en GitHub Pages. La página recarga los datos cada 2 minutos, así que puede quedar abierta en una pantalla.
 
 Los tableros nuevos aparecen solos: no hay que registrarlos en ningún lado.
+
+## Reporte semanal en PDF
+
+El botón **Reporte semanal PDF** del tablero descarga un reporte de los últimos 7 días, generado en la misma actualización que los datos del tablero:
+
+- Avance de los proyectos activos y cuánto cambió en la semana.
+- Tareas completadas y creadas en la semana.
+- Estado de cada proyecto o mejora activo (fase, salud, avance, alertas).
+- Lista de lo completado, lo vencido, lo detenido y los proyectos sin movimiento.
+- Lo que vence en los próximos 7 días y los entregables de cada persona.
+
+La versión para ver en pantalla o imprimir está en `reporte.html`. Si el PDF no se pudo generar en alguna corrida, el botón abre esa versión.
+
+Para generarlo en local (necesita Chrome o Edge instalado y un `site/data.json`):
+
+```bash
+npm install
+npm run pdf
+```
 
 ## Configuración inicial
 
@@ -38,6 +58,7 @@ gh workflow run actualizar-dashboard.yml
 - **Vencidas**: tareas no completadas cuya fecha de fin (columna Cronograma/Timeline o una fecha "límite/cierre/entrega") ya pasó.
 - **Salud** y **fase** vienen del tablero *Portafolio 2026*; se enlazan con el tablero del proyecto cuando el nombre coincide.
 - Un proyecto cuenta como **completado** si todas sus tareas están listas o si el portafolio lo marca como Completado.
+- **Completadas en la semana**: tareas que hoy están completadas y cuyo estado cambió en los últimos 7 días (Monday guarda la fecha del último cambio de estado). El **avance de hace 7 días** se estima con esa misma fecha: lo que cambió en la semana se cuenta como no completado antes, y las tareas creadas en la semana no cuentan.
 - **Entregables por persona**: cada tarea de los proyectos y tableros de tareas activos se asigna a quien figure en su columna de responsable (Responsable, Owner, People…; se ignoran columnas como "Reportado por" o "Aprobación"). Si una subtarea no tiene responsable, hereda el de su elemento padre. Las tareas abiertas sin nadie asignado aparecen en la tarjeta "Sin responsable".
 
 ## Ajustes (`config.json`)

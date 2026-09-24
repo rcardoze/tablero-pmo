@@ -88,7 +88,7 @@ button { font: inherit; color: inherit; }
 }
 .brand h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
 .brand .sub { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; }
-.topbar-right { display: flex; align-items: center; gap: 10px; }
+.topbar-right { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .updated {
   display: inline-flex; align-items: center; gap: 8px;
   color: var(--ink-2); font-size: 13px;
@@ -97,6 +97,16 @@ button { font: inherit; color: inherit; }
 }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-done); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-done) 20%, transparent); }
 .updated.is-stale .live-dot { background: var(--c-warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-warn) 25%, transparent); }
+.report-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--ink); font-size: 13px; font-weight: 500;
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 6px 12px; border-radius: 999px;
+}
+.report-btn, .updated { white-space: nowrap; }
+.report-btn:hover { text-decoration: none; background: var(--surface-2); }
+.report-btn svg { color: var(--ink-2); }
+.report-fmt { color: var(--muted); font-size: 11px; font-weight: 600; margin-left: 2px; }
 .icon-btn {
   display: inline-grid; place-items: center;
   width: 34px; height: 34px; border-radius: 50%;

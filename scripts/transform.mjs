@@ -180,7 +180,7 @@ function resolveStatus(item, col, labelMap) {
   const label = text || 'Sin estado';
   const color = text ? lab.color : EMPTY_COLOR;
   const bucket = text ? classifyLabel(text, lab.color, lab.isDone) : 'notstarted';
-  return { label, color, bucket, weight: percentWeight(text) };
+  return { label, color, bucket, weight: percentWeight(text), changedAt: v?.changed_at ?? null };
 }
 
 function dueOf(item, col) {
@@ -235,8 +235,10 @@ function tipoFromName(name) {
 
 export function buildDashboard(raw, config, now = new Date()) {
   const tz = config.timezone ?? 'America/Panama';
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+  const dateIn = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(ms));
+  const today = dateIn(now.getTime());
   const weekAgo = now.getTime() - 7 * 864e5;
+  const nextWeek = dateIn(now.getTime() + 7 * 864e5);
   const staleMs = (config.staleDays ?? 21) * 864e5;
   const sectionsCfg = config.sections;
   const excludeIds = new Set((config.exclude?.boardIds ?? []).map(String));
@@ -245,6 +247,8 @@ export function buildDashboard(raw, config, now = new Date()) {
   const attention = { stuck: [], overdue: [], stale: [] };
   const boards = [];
   const assignments = []; // entregables de tableros de avance, para la vista por persona
+  const completedWeek = []; // tareas que pasaron a completadas en los últimos 7 días
+  let createdWeek = 0;
   const userName = new Map(
     (raw.users ?? []).map((u) => [String(u.id), config.displayNames?.[u.id] ?? displayName(u.name)]),
   );
@@ -282,6 +286,10 @@ export function buildDashboard(raw, config, now = new Date()) {
     let overdue = 0;
     let updated7d = 0;
     let lastActivity = null;
+    let doneWeek = 0;
+    let newWeek = 0;
+    let prevCountable = 0;
+    let prevWeighted = 0;
 
     for (const it of leaves) {
       const ts = it.updated_at ? Date.parse(it.updated_at) : NaN;
@@ -296,6 +304,15 @@ export function buildDashboard(raw, config, now = new Date()) {
       if (st.bucket === 'done') weighted += 1;
       else if (st.weight != null && st.bucket === 'progress') weighted += st.weight;
 
+      // Avance estimado hace 7 días: solo cuenta lo que ya existía, y si el estado cambió
+      // en la semana se asume que antes no estaba completado (Monday guarda la fecha del último cambio)
+      const isNew = Date.parse(it.created_at) >= weekAgo;
+      const changedWeek = Date.parse(st.changedAt) >= weekAgo;
+      if (!isNew && !(st.bucket === 'cancelled' && !changedWeek)) {
+        prevCountable++;
+        if (!changedWeek) prevWeighted += st.bucket === 'done' ? 1 : st.bucket === 'progress' ? (st.weight ?? 0) : 0;
+      }
+
       const key = `${st.label}|${st.color}`;
       const lc = labelCounts.get(key) ?? { label: st.label, color: st.color, bucket: st.bucket, count: 0 };
       lc.count++;
@@ -308,16 +325,23 @@ export function buildDashboard(raw, config, now = new Date()) {
       const owners = ownerIds.map((id) => userName.get(id) ?? 'Miembro eliminado');
       const isOverdue = open && !!due && due < today;
       const base = { name: it.name, url: it.url, board: b.name, boardId: String(b.id), status: st.label, owners };
+      const isDoneWeek = st.bucket === 'done' && changedWeek;
+      if (isNew) newWeek++;
+      if (isDoneWeek) {
+        doneWeek++;
+        completedWeek.push({ ...base, date: st.changedAt });
+      }
       if (isOverdue) {
         overdue++;
         attention.overdue.push({ ...base, due });
       }
       if (st.bucket === 'stuck') attention.stuck.push(base);
-      assignments.push({ ...base, ownerIds, bucket: st.bucket, due, overdue: isOverdue });
+      assignments.push({ ...base, ownerIds, bucket: st.bucket, due, overdue: isOverdue, doneWeek: isDoneWeek });
     }
 
     const countable = leaves.length - buckets.cancelled;
     const avance = statusCol && countable > 0 ? weighted / countable : null;
+    createdWeek += newWeek;
     const labels = [...labelCounts.values()].sort(
       (x, y) => BUCKET_ORDER[x.bucket] - BUCKET_ORDER[y.bucket] || y.count - x.count,
     );
@@ -341,6 +365,10 @@ export function buildDashboard(raw, config, now = new Date()) {
       overdue,
       updated7d,
       lastActivity,
+      doneWeek,
+      newWeek,
+      prevCountable,
+      avancePrev: statusCol && prevCountable > 0 ? prevWeighted / prevCountable : null,
       code: codeOf(b.name),
       tipo: tipoFromName(b.name),
       state: !statusCol ? 'nostatus' : countable <= 0 ? 'empty' : avance >= 0.999 ? 'done' : 'active',
@@ -460,6 +488,8 @@ export function buildDashboard(raw, config, now = new Date()) {
   const taskBuckets = activeKpi.reduce((acc, b) => addBuckets(acc, b.buckets), emptyBuckets());
   const countable = activeKpi.reduce((n, b) => n + b.countable, 0);
   const weighted = activeKpi.reduce((n, b) => n + (b.avance ?? 0) * b.countable, 0);
+  const prevCountable = activeKpi.reduce((n, b) => n + b.prevCountable, 0);
+  const prevWeighted = activeKpi.reduce((n, b) => n + (b.avancePrev ?? 0) * b.prevCountable, 0);
 
   // Las tareas abiertas de proyectos ya cerrados no requieren atención
   const activeIds = new Set(boards.filter((b) => b.state === 'active').map((b) => b.id));
@@ -485,8 +515,9 @@ export function buildDashboard(raw, config, now = new Date()) {
       continue;
     }
     a.ownerIds.forEach((id, i) => {
-      const p = byPerson.get(id) ?? { id, name: a.owners[i], known: userName.has(id), buckets: emptyBuckets(), overdue: 0, boardIds: new Set(), open: [] };
+      const p = byPerson.get(id) ?? { id, name: a.owners[i], known: userName.has(id), buckets: emptyBuckets(), overdue: 0, doneWeek: 0, boardIds: new Set(), open: [] };
       p.buckets[a.bucket]++;
+      if (a.doneWeek) p.doneWeek++;
       p.boardIds.add(a.boardId);
       if (a.overdue) p.overdue++;
       if (open) p.open.push({ name: a.name, url: a.url, board: a.board, boardId: a.boardId, status: a.status, bucket: a.bucket, due: a.due, overdue: a.overdue });
@@ -510,11 +541,20 @@ export function buildDashboard(raw, config, now = new Date()) {
         openCount: p.open.length,
         overdue: p.overdue,
         stuck: p.buckets.stuck,
+        doneWeek: p.doneWeek,
         nextDue,
         open: p.open.slice(0, OPEN_LIMIT),
       };
     })
     .sort((a, b) => b.overdue + b.stuck - (a.overdue + a.stuck) || b.openCount - a.openCount || a.name.localeCompare(b.name));
+
+  // ---------- Semana: completadas en los últimos 7 días y lo que vence en los próximos 7 ----------
+  const WEEK_LIMIT = 150;
+  completedWeek.sort((a, b) => b.date.localeCompare(a.date));
+  const dueNext = assignments
+    .filter((a) => activeIds.has(a.boardId) && a.bucket !== 'done' && a.bucket !== 'cancelled' && a.due && a.due >= today && a.due <= nextWeek)
+    .sort((a, b) => a.due.localeCompare(b.due) || a.board.localeCompare(b.board))
+    .map(({ name, url, board, boardId, status, owners, due }) => ({ name, url, board, boardId, status, owners, due }));
 
   return {
     generatedAt: now.toISOString(),
@@ -528,6 +568,7 @@ export function buildDashboard(raw, config, now = new Date()) {
       projectsActive: activeKpi.length,
       projectsDone: kpiBoards.filter((b) => b.state === 'done').length,
       avance: countable ? weighted / countable : null,
+      avancePrev: prevCountable ? prevWeighted / prevCountable : null,
       tasks: taskBuckets,
       overdue: attention.overdue.length,
       stuck: attention.stuck.length,
@@ -538,6 +579,17 @@ export function buildDashboard(raw, config, now = new Date()) {
     sections,
     boards,
     attention,
+    week: {
+      from: new Date(weekAgo).toISOString(),
+      fromDate: dateIn(weekAgo),
+      toDate: today,
+      nextWeekDate: nextWeek,
+      completedCount: completedWeek.length,
+      completed: completedWeek.slice(0, WEEK_LIMIT),
+      created: createdWeek,
+      dueNextCount: dueNext.length,
+      dueNext: dueNext.slice(0, WEEK_LIMIT),
+    },
     people,
     unassigned: {
       open: unassigned.open,

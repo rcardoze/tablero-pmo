@@ -702,6 +702,7 @@ function render() {
   applySearch();
   renderFooter();
   renderUpdated();
+  setupReportLink();
 }
 
 function renderFooter() {
@@ -714,6 +715,23 @@ function renderFooter() {
       errs.length ? h('div', null, `No se pudieron leer ${errs.length} tablero(s): ${errs.map((e) => e.board).join(', ')}.`) : null,
     ].filter(Boolean),
   );
+}
+
+// El PDF se genera en cada actualización; si todavía no existe, el botón abre la versión para imprimir.
+let reportFor = null;
+function setupReportLink() {
+  if (reportFor === data.generatedAt) return;
+  reportFor = data.generatedAt;
+  const a = document.getElementById('report-btn');
+  const stamp = data.generatedAt;
+  fetch(`reporte-semanal.pdf?v=${encodeURIComponent(stamp)}`, { method: 'HEAD', cache: 'no-store' })
+    .then((r) => {
+      if (!r.ok || reportFor !== stamp) return;
+      a.href = `reporte-semanal.pdf?v=${encodeURIComponent(stamp)}`;
+      a.setAttribute('download', `Reporte semanal PMO ${data.today}.pdf`);
+      a.title = `Descargar el reporte de los últimos 7 días (datos al ${fmtDate(stamp, true)})`;
+    })
+    .catch(() => {});
 }
 
 function renderUpdated() {

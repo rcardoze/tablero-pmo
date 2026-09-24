@@ -1,0 +1,12 @@
+{
+  "name": "tablero-pmo",
+  "private": true,
+  "description": "Dashboard en vivo de los tableros de Monday de la PMO y su reporte semanal en PDF.",
+  "scripts": {
+    "test": "node --test scripts/transform.test.mjs",
+    "pdf": "node scripts/pdf.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.12.0"
+  }
+}
