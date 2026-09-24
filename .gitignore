@@ -1,3 +1,4 @@
 site/data.json
 node_modules/
 .env
+.claude/

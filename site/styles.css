@@ -206,6 +206,28 @@ main.is-refreshing { opacity: 0.6; transition: opacity 0.2s; }
 .att-empty { color: var(--muted); font-size: 13px; padding: 4px 0; }
 .link-btn { background: none; border: 0; padding: 6px 0 0; color: var(--link); cursor: pointer; font-size: 13px; }
 
+/* ---------- Entregables por persona ---------- */
+.people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+details.person { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); min-width: 0; }
+details.person > summary { list-style: none; cursor: pointer; padding: 14px; display: grid; gap: 10px; border-radius: 10px; }
+details.person > summary::-webkit-details-marker { display: none; }
+details.person > summary:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+details.person[open] > summary { border-bottom: 1px solid var(--hairline); border-radius: 10px 10px 0 0; }
+.p-top { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.avatar {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border); color: var(--ink-2); font-weight: 650; font-size: 13px;
+}
+.p-name { min-width: 0; display: grid; }
+.p-name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-name .muted { font-size: 12px; }
+.p-pct { font-size: 20px; font-weight: 650; }
+.p-flags { display: flex; flex-wrap: wrap; gap: 4px 14px; min-height: 18px; }
+.p-next { color: var(--ink-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-next b { color: var(--ink); font-weight: 550; }
+.p-list { padding: 4px 14px 10px !important; max-height: 360px; overflow-y: auto; }
+.is-unassigned { border-style: dashed !important; }
+
 /* ---------- Filtros ---------- */
 .filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .search {

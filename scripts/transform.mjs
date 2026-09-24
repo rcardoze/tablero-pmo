@@ -14,7 +14,7 @@ const EMPTY_COLOR = '#c4c4c4';
 export function norm(s) {
   return String(s ?? '')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9%/ ]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -105,6 +105,36 @@ export function pickDueColumn(columns) {
         !/(completion|registro|aprob|informe|creaci|real)/i.test(c.title),
     ) ?? null
   );
+}
+
+// Columna de personas que indica quién es responsable del entregable
+export function pickPeopleColumn(columns, overrideId) {
+  const people = columns.filter((c) => c.type === 'people');
+  if (overrideId) return people.find((c) => c.id === overrideId) ?? null;
+  const score = (c) => {
+    let s = 0;
+    if (['project_owner', 'person', 'task_owner', 'owner', 'people'].includes(c.id)) s += 50;
+    if (/(responsable|owner|asignad|encargad|l[ií]der|people|person|due[nñ]o)/i.test(c.title)) s += 40;
+    if (/(reportad|aprob|cread|creator|solicit|stakeholder|observ|interesad|cliente|revis|contact)/i.test(c.title)) s -= 100;
+    return s;
+  };
+  const best = people.reduce((a, c) => (!a || score(c) > score(a) ? c : a), null);
+  return best && score(best) > -50 ? best : null;
+}
+
+function personIdsOf(item, col) {
+  const v = parseJSON(item.column_values?.find((c) => c.id === col.id)?.value);
+  return (v?.personsAndTeams ?? []).filter((p) => p.kind !== 'team').map((p) => String(p.id));
+}
+
+export function displayName(name) {
+  const n = String(name ?? '').trim();
+  if (!n.includes('@')) return n;
+  return n
+    .split('@')[0]
+    .split(/[._-]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 function labelsOf(col) {
@@ -211,6 +241,10 @@ export function buildDashboard(raw, config, now = new Date()) {
 
   const attention = { stuck: [], overdue: [], stale: [] };
   const boards = [];
+  const assignments = []; // entregables de tableros de avance, para la vista por persona
+  const userName = new Map(
+    (raw.users ?? []).map((u) => [String(u.id), config.displayNames?.[u.id] ?? displayName(u.name)]),
+  );
   let totalItems = 0;
 
   for (const b of raw.boards) {
@@ -222,9 +256,20 @@ export function buildDashboard(raw, config, now = new Date()) {
     const statusCol = pickStatusColumn(b.columns ?? [], config.statusColumnOverrides?.[b.id]);
     const dueCol = pickDueColumn(b.columns ?? []);
     const labelMap = statusCol ? buildLabelMap(statusCol) : new Map();
+    const peopleCol = pickPeopleColumn(b.columns ?? [], config.peopleColumnOverrides?.[b.id]);
 
     const parentIds = new Set(items.map((i) => i.parent_item?.id).filter(Boolean));
     const leaves = items.filter((i) => !parentIds.has(i.id));
+    const itemById = new Map(items.map((i) => [i.id, i]));
+    // Si la subtarea no tiene responsable, hereda el del elemento padre
+    const ownersOf = (it) => {
+      if (!peopleCol) return [];
+      for (let cur = it, depth = 0; cur && depth < 6; cur = itemById.get(cur.parent_item?.id), depth++) {
+        const ids = personIdsOf(cur, peopleCol);
+        if (ids.length) return ids;
+      }
+      return [];
+    };
     totalItems += leaves.length;
 
     const buckets = emptyBuckets();
@@ -255,13 +300,16 @@ export function buildDashboard(raw, config, now = new Date()) {
       if (section.mode !== 'progress') continue;
       const due = dueOf(it, dueCol);
       const open = st.bucket !== 'done' && st.bucket !== 'cancelled';
-      if (open && due && due < today) {
+      const ownerIds = ownersOf(it);
+      const owners = ownerIds.map((id) => userName.get(id) ?? `Usuario ${id}`);
+      const isOverdue = open && !!due && due < today;
+      const base = { name: it.name, url: it.url, board: b.name, boardId: String(b.id), status: st.label, owners };
+      if (isOverdue) {
         overdue++;
-        attention.overdue.push({ name: it.name, url: it.url, board: b.name, boardId: String(b.id), due, status: st.label });
+        attention.overdue.push({ ...base, due });
       }
-      if (st.bucket === 'stuck') {
-        attention.stuck.push({ name: it.name, url: it.url, board: b.name, boardId: String(b.id), status: st.label });
-      }
+      if (st.bucket === 'stuck') attention.stuck.push(base);
+      assignments.push({ ...base, ownerIds, bucket: st.bucket, due, overdue: isOverdue });
     }
 
     const countable = leaves.length - buckets.cancelled;
@@ -280,6 +328,7 @@ export function buildDashboard(raw, config, now = new Date()) {
       hierarchy: b.hierarchy_type,
       statusColumn: statusCol?.title ?? null,
       dueColumn: dueCol?.title ?? null,
+      peopleColumn: peopleCol?.title ?? null,
       total: leaves.length,
       countable,
       avance,
@@ -415,6 +464,52 @@ export function buildDashboard(raw, config, now = new Date()) {
   attention.overdue.sort((a, b) => a.due.localeCompare(b.due));
   attention.stale.sort((a, b) => a.lastActivity.localeCompare(b.lastActivity));
 
+  // ---------- Entregables por persona (solo tableros activos) ----------
+  const OPEN_LIMIT = 40;
+  const byPerson = new Map();
+  const unassigned = { open: 0, overdue: 0, stuck: 0, boards: new Map() };
+  const openRank = (a) => (a.overdue ? 0 : a.bucket === 'stuck' ? 1 : a.due ? 2 : 3);
+  for (const a of assignments) {
+    if (!activeIds.has(a.boardId)) continue;
+    const open = a.bucket !== 'done' && a.bucket !== 'cancelled';
+    if (!a.ownerIds.length) {
+      if (!open) continue;
+      unassigned.open++;
+      if (a.overdue) unassigned.overdue++;
+      if (a.bucket === 'stuck') unassigned.stuck++;
+      unassigned.boards.set(a.board, (unassigned.boards.get(a.board) ?? 0) + 1);
+      continue;
+    }
+    a.ownerIds.forEach((id, i) => {
+      const p = byPerson.get(id) ?? { id, name: a.owners[i], buckets: emptyBuckets(), overdue: 0, boardIds: new Set(), open: [] };
+      p.buckets[a.bucket]++;
+      p.boardIds.add(a.boardId);
+      if (a.overdue) p.overdue++;
+      if (open) p.open.push({ name: a.name, url: a.url, board: a.board, boardId: a.boardId, status: a.status, bucket: a.bucket, due: a.due, overdue: a.overdue });
+      byPerson.set(id, p);
+    });
+  }
+  const people = [...byPerson.values()]
+    .map((p) => {
+      p.open.sort((x, y) => openRank(x) - openRank(y) || (x.due ?? '9').localeCompare(y.due ?? '9'));
+      const countable = Object.values(p.buckets).reduce((n, v) => n + v, 0) - p.buckets.cancelled;
+      const nextDue = p.open.find((o) => o.due && !o.overdue) ?? null;
+      return {
+        id: p.id,
+        name: p.name,
+        boards: p.boardIds.size,
+        total: countable,
+        buckets: p.buckets,
+        avance: countable ? p.buckets.done / countable : null,
+        openCount: p.open.length,
+        overdue: p.overdue,
+        stuck: p.buckets.stuck,
+        nextDue,
+        open: p.open.slice(0, OPEN_LIMIT),
+      };
+    })
+    .sort((a, b) => b.overdue + b.stuck - (a.overdue + a.stuck) || b.openCount - a.openCount || a.name.localeCompare(b.name));
+
   return {
     generatedAt: now.toISOString(),
     today,
@@ -437,6 +532,13 @@ export function buildDashboard(raw, config, now = new Date()) {
     sections,
     boards,
     attention,
+    people,
+    unassigned: {
+      open: unassigned.open,
+      overdue: unassigned.overdue,
+      stuck: unassigned.stuck,
+      boards: [...unassigned.boards].map(([board, count]) => ({ board, count })).sort((a, b) => b.count - a.count),
+    },
     errors: raw.errors ?? [],
   };
 }

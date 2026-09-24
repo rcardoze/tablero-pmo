@@ -45,7 +45,7 @@ function h(tag, props, ...children) {
 const norm = (s) =>
   String(s ?? '')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
 function pct(v) {
@@ -347,7 +347,12 @@ function renderAttention() {
     h(
       'li',
       null,
-      h('div', { style: 'min-width:0' }, h('a', { class: 'nm', href: x.url, target: '_blank', rel: 'noopener', title: x.name }, x.name), h('div', { class: 'bd', title: x.board }, x.board)),
+      h(
+        'div',
+        { style: 'min-width:0' },
+        h('a', { class: 'nm', href: x.url, target: '_blank', rel: 'noopener', title: x.name }, x.name),
+        h('div', { class: 'bd', title: x.board }, [x.board, x.owners?.length ? x.owners.join(', ') : null].filter(Boolean).join(' · ')),
+      ),
       when ? h('span', { class: 'when' }, when) : null,
     );
 
@@ -360,6 +365,108 @@ function renderAttention() {
     group('Sin movimiento reciente', h('span', { class: 'ico none', 'aria-hidden': 'true' }, '–'), a.stale, (x) =>
       itemRow({ name: x.board, url: x.url, board: `Última actividad ${ago(x.lastActivity)}` }, fmtDate(x.lastActivity)),
     ),
+  );
+}
+
+const initials = (name) =>
+  String(name)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+
+function dueText(o) {
+  if (!o.due) return o.status;
+  return o.overdue ? `venció ${fmtDate(o.due)}` : `vence ${fmtDate(o.due)}`;
+}
+
+function renderPeople() {
+  const people = data.people ?? [];
+  const un = data.unassigned;
+  if (!people.length && !un?.open) return null;
+
+  const card = (p) => {
+    const key = `p-${p.id}`;
+    const flags = [
+      p.stuck ? h('span', { class: 'pill' }, h('span', { class: 'ico bad', 'aria-hidden': 'true' }, '✕'), `${p.stuck} detenida${p.stuck > 1 ? 's' : ''}`) : null,
+      p.overdue ? h('span', { class: 'pill' }, h('span', { class: 'ico warn', 'aria-hidden': 'true' }, '!'), `${p.overdue} vencida${p.overdue > 1 ? 's' : ''}`) : null,
+      !p.stuck && !p.overdue ? h('span', { class: 'pill' }, h('span', { class: 'ico good', 'aria-hidden': 'true' }, '✓'), 'Al día') : null,
+    ];
+    return h(
+      'details',
+      {
+        class: 'person',
+        dataset: { key },
+        open: ui.open.has(key),
+        ontoggle: (e) => (e.currentTarget.open ? ui.open.add(key) : ui.open.delete(key)),
+      },
+      h(
+        'summary',
+        null,
+        h(
+          'div',
+          { class: 'p-top' },
+          h('span', { class: 'avatar', 'aria-hidden': 'true' }, initials(p.name)),
+          h('div', { class: 'p-name' }, h('b', null, p.name), h('span', { class: 'muted' }, `${p.openCount} abiertos · ${p.boards} ${p.boards === 1 ? 'tablero' : 'tableros'}`)),
+          h('div', { class: 'p-pct', title: 'Entregables completados' }, pct(p.avance)),
+        ),
+        stackBar(bucketSegs(p.buckets)),
+        h('div', { class: 'p-flags' }, flags),
+        p.nextDue ? h('div', { class: 'p-next' }, 'Próximo: ', h('b', null, p.nextDue.name), ` · ${fmtDate(p.nextDue.due)}`) : null,
+      ),
+      p.open.length
+        ? h(
+            'ul',
+            { class: 'att-list p-list' },
+            p.open.map((o) =>
+              h(
+                'li',
+                null,
+                h('div', { style: 'min-width:0' }, h('a', { class: 'nm', href: o.url, target: '_blank', rel: 'noopener', title: o.name }, o.name), h('div', { class: 'bd', title: o.board }, `${o.board} · ${o.status}`)),
+                h('span', { class: 'when' }, o.due ? dueText(o) : ''),
+              ),
+            ),
+            p.openCount > p.open.length ? h('li', { class: 'muted' }, `y ${p.openCount - p.open.length} más…`) : null,
+          )
+        : h('div', { class: 'att-empty p-list' }, 'Sin entregables abiertos.'),
+    );
+  };
+
+  const unassignedCard = un?.open
+    ? h(
+        'details',
+        { class: 'person is-unassigned' },
+        h(
+          'summary',
+          null,
+          h(
+            'div',
+            { class: 'p-top' },
+            h('span', { class: 'avatar', 'aria-hidden': 'true' }, '?'),
+            h('div', { class: 'p-name' }, h('b', null, 'Sin responsable'), h('span', { class: 'muted' }, `${un.open} entregables abiertos sin asignar`)),
+            h('div', { class: 'p-pct' }, nf.format(un.open)),
+          ),
+          h('div', { class: 'p-flags' }, [
+            un.stuck ? h('span', { class: 'pill' }, h('span', { class: 'ico bad', 'aria-hidden': 'true' }, '✕'), `${un.stuck} detenidas`) : null,
+            un.overdue ? h('span', { class: 'pill' }, h('span', { class: 'ico warn', 'aria-hidden': 'true' }, '!'), `${un.overdue} vencidas`) : null,
+          ]),
+          h('div', { class: 'p-next' }, 'Asignar responsable en Monday para que aparezcan en la persona correcta.'),
+        ),
+        h('ul', { class: 'att-list p-list' }, un.boards.map((b) => h('li', null, h('span', { class: 'nm' }, b.board), h('span', { class: 'when' }, `${b.count}`)))),
+      )
+    : null;
+
+  return h(
+    'section',
+    { class: 'card', 'aria-label': 'Entregables por persona' },
+    h(
+      'div',
+      { class: 'card-head' },
+      h('h2', null, 'Entregables por persona'),
+      h('span', { class: 'meta' }, `${people.length} personas con entregables en proyectos y tareas activos · toca una persona para ver su lista`),
+    ),
+    h('div', { class: 'people-grid' }, people.map(card), unassignedCard),
   );
 }
 
@@ -582,10 +689,13 @@ function render() {
 
   const portfolio = renderPortfolio();
   app.replaceChildren(
-    renderHero(),
-    h('div', { class: 'grid-2' }, portfolio, renderAttention()),
-    h('div', { class: 'filters' }, search, h('span', { class: 'count' }, 'Toca un tablero para ver el detalle de sus estados.')),
-    ...data.sections.map((s) => renderSection(s, boardsById)),
+    ...[
+      renderHero(),
+      h('div', { class: 'grid-2' }, portfolio, renderAttention()),
+      renderPeople(),
+      h('div', { class: 'filters' }, search, h('span', { class: 'count' }, 'Toca un tablero para ver el detalle de sus estados.')),
+      ...data.sections.map((s) => renderSection(s, boardsById)),
+    ].filter(Boolean),
   );
   if (!portfolio) app.querySelector('.grid-2').style.gridTemplateColumns = '1fr';
   app.setAttribute('aria-busy', 'false');

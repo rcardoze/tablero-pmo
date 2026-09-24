@@ -1,6 +1,6 @@
 # Tablero PMO
 
-Dashboard en vivo con el estado de **todos** los tableros de Monday de la PMO: avance de proyectos y mejoras, salud del portafolio, tareas detenidas o vencidas, y la distribución de estados de cada tablero (solicitudes, riesgos, cambios, recursos, tareas personales y demás espacios de trabajo).
+Dashboard en vivo con el estado de **todos** los tableros de Monday de la PMO: avance de proyectos y mejoras, salud del portafolio, tareas detenidas o vencidas, entregables de cada miembro de la PMO, y la distribución de estados de cada tablero (solicitudes, riesgos, cambios, recursos, tareas personales y demás espacios de trabajo).
 
 ## Cómo funciona
 
@@ -38,6 +38,7 @@ gh workflow run actualizar-dashboard.yml
 - **Vencidas**: tareas no completadas cuya fecha de fin (columna Cronograma/Timeline o una fecha "límite/cierre/entrega") ya pasó.
 - **Salud** y **fase** vienen del tablero *Portafolio 2026*; se enlazan con el tablero del proyecto cuando el nombre coincide.
 - Un proyecto cuenta como **completado** si todas sus tareas están listas o si el portafolio lo marca como Completado.
+- **Entregables por persona**: cada tarea de los proyectos y tableros de tareas activos se asigna a quien figure en su columna de responsable (Responsable, Owner, People…; se ignoran columnas como "Reportado por" o "Aprobación"). Si una subtarea no tiene responsable, hereda el de su elemento padre. Las tareas abiertas sin nadie asignado aparecen en la tarjeta "Sin responsable".
 
 ## Ajustes (`config.json`)
 
@@ -45,6 +46,8 @@ gh workflow run actualizar-dashboard.yml
 - `displayOrder`: orden en que se muestran las secciones.
 - `exclude.boardIds`: IDs de tableros a ocultar (el ID es el número en la URL del tablero).
 - `statusColumnOverrides`: `{ "<id del tablero>": "<id de la columna>" }` si el script eligió la columna de estado equivocada.
+- `peopleColumnOverrides`: igual que el anterior, para la columna de responsable.
+- `displayNames`: `{ "<id de usuario>": "Nombre" }` para mostrar un nombre en lugar del correo con que aparece en Monday.
 - `staleDays`: días sin cambios para marcar un proyecto activo como "sin movimiento".
 
 Para probar cambios localmente:

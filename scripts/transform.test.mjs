@@ -136,3 +136,47 @@ test('arma el resumen: hojas en multinivel, portafolio, secciones y totales', ()
   assert.equal(d.totals.overdue, 1);
   assert.equal(d.attention.stuck[0].name, 'Tarea c3');
 });
+
+test('agrupa entregables por persona y hereda el responsable del padre', () => {
+  const owner = (...ids) => JSON.stringify({ personsAndTeams: ids.map((id) => ({ id, kind: 'person' })) });
+  const cols = [
+    { id: 'project_status', title: 'Estatus', type: 'status', settings: { labels: [
+      { id: 0, label: 'En Ejecución' }, { id: 1, label: 'Listo', is_done: true }, { id: 10, label: 'Bloqueado' } ] } },
+    { id: 'project_timeline', title: 'Cronograma', type: 'timeline' },
+    { id: 'reportado', title: 'Reportado por', type: 'people' },
+    { id: 'project_owner', title: 'Responsable', type: 'people' },
+  ];
+  const it = (id, parent, status, own, due) => ({
+    id, name: `T ${id}`, url: `u/${id}`, updated_at: '2026-09-20T00:00:00Z', parent_item: parent ? { id: parent } : null,
+    column_values: [
+      { id: 'project_status', value: status == null ? null : s(status) },
+      { id: 'project_timeline', value: due ? tl(due) : null },
+      { id: 'project_owner', value: own ?? null },
+      { id: 'reportado', value: owner(3) },
+    ],
+  });
+  const raw = {
+    users: [{ id: '1', name: 'Esteban Millaa' }, { id: '2', name: 'rcardoze@melonesterminal.com' }, { id: '3', name: 'Otro' }],
+    boards: [{ id: '10', name: 'Proyecto X', type: 'board', hierarchy_type: 'multi_level', url: 'b', workspace: { name: 'PMO' }, folder: { name: '🛠️Proyectos' }, columns: cols }],
+    itemsByBoard: {
+      10: [
+        it('p', null, null, owner(1)),              // padre con responsable 1
+        it('c1', 'p', 1), it('c2', 'p', 0, null, '2026-09-01'), // heredan de 1
+        it('x1', null, 10, owner(2)),               // bloqueada, de 2
+        it('x2', null, 0, owner(1, 2)),             // compartida
+        it('x3', null, 0),                          // sin responsable
+      ],
+    },
+  };
+  const d = buildDashboard(raw, config, new Date('2026-09-23T23:00:00Z'));
+  const p = Object.fromEntries(d.people.map((x) => [x.name, x]));
+  assert.deepEqual(Object.keys(p).sort(), ['Esteban Millaa', 'Rcardoze'], '"Reportado por" no cuenta como responsable');
+  assert.equal(p['Esteban Millaa'].total, 3);
+  assert.equal(p['Esteban Millaa'].openCount, 2);
+  assert.equal(p['Esteban Millaa'].overdue, 1);
+  assert.equal(p['Esteban Millaa'].open[0].name, 'T c2', 'las vencidas van primero');
+  assert.equal(p['Rcardoze'].stuck, 1);
+  assert.equal(d.people[0].name, 'Esteban Millaa');
+  assert.equal(d.unassigned.open, 1);
+  assert.deepEqual(d.attention.stuck[0].owners, ['Rcardoze']);
+});

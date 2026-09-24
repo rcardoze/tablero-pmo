@@ -3,7 +3,7 @@
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildDashboard, pickStatusColumn, pickDueColumn } from './transform.mjs';
+import { buildDashboard, pickStatusColumn, pickDueColumn, pickPeopleColumn } from './transform.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, process.env.OUT_FILE ?? 'site/data.json');
@@ -52,7 +52,7 @@ const BOARDS_QUERY = `query ($page: Int!) {
     id name type hierarchy_type items_count updated_at url
     workspace { id name }
     folder { id name parent { id name } }
-    columns(types: [status, timeline, date]) { id title type settings }
+    columns(types: [status, timeline, date, people]) { id title type settings }
   }
 }`;
 
@@ -76,6 +76,18 @@ async function fetchAllBoards() {
     const data = await gql(BOARDS_QUERY, { page });
     all.push(...data.boards);
     if (data.boards.length < 50) break;
+  }
+  return all;
+}
+
+const USERS_QUERY = `query ($page: Int!) { users(limit: 100, page: $page) { id name } }`;
+
+async function fetchUsers() {
+  const all = [];
+  for (let page = 1; ; page++) {
+    const data = await gql(USERS_QUERY, { page });
+    all.push(...data.users);
+    if (data.users.length < 100) break;
   }
   return all;
 }
@@ -112,13 +124,15 @@ async function main() {
 
   const boards = (await fetchAllBoards()).filter((b) => !b.type || b.type === 'board');
   console.log(`Tableros encontrados: ${boards.length}`);
+  const users = await fetchUsers();
 
   const itemsByBoard = {};
   const errors = [];
   await mapLimit(boards, CONCURRENCY, async (b) => {
     const status = pickStatusColumn(b.columns ?? [], config.statusColumnOverrides?.[b.id]);
     const due = pickDueColumn(b.columns ?? []);
-    const cols = [status?.id, due?.id].filter(Boolean);
+    const people = pickPeopleColumn(b.columns ?? [], config.peopleColumnOverrides?.[b.id]);
+    const cols = [status?.id, due?.id, people?.id].filter(Boolean);
     if (String(b.id) === String(config.portfolio?.boardId)) {
       const p = config.portfolio;
       cols.push(p.phaseColumn, p.healthColumn, p.typeColumn);
@@ -131,7 +145,7 @@ async function main() {
     }
   });
 
-  const data = buildDashboard({ boards, itemsByBoard, errors }, config, new Date());
+  const data = buildDashboard({ boards, itemsByBoard, users, errors }, config, new Date());
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(data));
 
@@ -142,6 +156,7 @@ async function main() {
     `- Proyectos activos: ${t.projectsActive} · completados: ${t.projectsDone}`,
     `- Avance proyectos activos: ${t.avance == null ? '—' : Math.round(t.avance * 100) + '%'}`,
     `- Detenidas: ${t.stuck} · vencidas: ${t.overdue}`,
+    `- Personas con entregables: ${data.people.length} · sin responsable: ${data.unassigned.open}`,
     `- Errores: ${errors.length}${errors.map((e) => `\n  - ${e.board}: ${e.message}`).join('')}`,
     `- Duración: ${Math.round((Date.now() - started) / 1000)} s`,
   ].join('\n');
