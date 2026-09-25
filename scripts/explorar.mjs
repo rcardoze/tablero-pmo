@@ -52,12 +52,18 @@ for (const b of target) {
   const full = d.boards[0];
   let page = full.items_page;
   const items = [...page.items];
-  while (page.cursor) {
-    page = (await gql(`query ($c: String!) { next_items_page(limit: 500, cursor: $c) { ${ITEMS} } }`, { c: page.cursor })).next_items_page;
-    items.push(...page.items);
+  let truncated = false;
+  try {
+    while (page.cursor) {
+      page = (await gql(`query ($c: String!) { next_items_page(limit: 500, cursor: $c) { ${ITEMS} } }`, { c: page.cursor })).next_items_page;
+      items.push(...page.items);
+    }
+  } catch (e) {
+    truncated = e.message;
+    console.log(`Tablero ${b.id}: paginación cortada (${items.length} elementos)`);
   }
   delete full.items_page;
-  out.push({ ...full, workspace: b.workspace?.name, folder: b.folder?.name, parentFolder: b.folder?.parent?.name, items });
+  out.push({ ...full, workspace: b.workspace?.name, folder: b.folder?.name, parentFolder: b.folder?.parent?.name, truncated, items });
 }
 
 await mkdir('explore', { recursive: true });
