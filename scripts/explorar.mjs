@@ -26,7 +26,7 @@ async function gql(query, variables = {}) {
   throw new Error('Monday no respondió');
 }
 
-const CV = `column_values { id type text value
+const CV = `column_values(capabilities: [CALCULATED]) { id type text value
   ... on FormulaValue { display_value }
   ... on MirrorValue { display_value }
   ... on BoardRelationValue { display_value linked_item_ids } }`;
