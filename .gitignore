@@ -3,3 +3,4 @@ site/reporte-semanal.pdf
 node_modules/
 .env
 .claude/
+explore/

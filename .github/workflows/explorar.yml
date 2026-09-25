@@ -1,0 +1,32 @@
+name: Explorar tableros (temporal)
+
+# Guarda la estructura de los tableros de algunos espacios en un artefacto que vence en 1 día.
+on:
+  workflow_dispatch:
+    inputs:
+      workspaces:
+        description: Expresión para elegir espacios de trabajo
+        default: dique
+
+permissions:
+  contents: read
+
+jobs:
+  explorar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Leer tableros
+        env:
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          WORKSPACES: ${{ inputs.workspaces }}
+        run: node scripts/explorar.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exploracion
+          path: explore/
+          retention-days: 1
