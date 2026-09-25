@@ -16,6 +16,7 @@
       "collapsed": true,
       "match": {
         "folder": "plantilla|formulario|proyectos multiples",
+        "workspace": "plantilla|prueba|^mejora multinivel",
         "name": "plantilla|template|^proyecto (alfa|beta|d)$|^mejoras rev",
         "hasColumn": "portfolio_project_step"
       }

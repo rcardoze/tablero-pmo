@@ -192,6 +192,9 @@ test('manda plantillas y tableros de prueba fuera de los indicadores', () => {
       { id: config.portfolio.boardId, name: 'Portafolio 2026', type: 'board', url: 'x', workspace: ws, folder: { name: '📊Portafolio' }, columns: [stage] },
       { id: '5', name: '🛠️ Laboratorio PMO-25-04', type: 'board', url: 'x', workspace: ws, folder: { name: '🛠️Proyectos' }, columns: [] },
       { id: '6', name: 'To Dos-', type: 'board', board_kind: 'private', url: 'x', workspace: { name: 'Ramon' }, columns: [] },
+      { id: '7', name: 'Invoices', type: 'board', url: 'x', workspace: { name: 'Espacio de prueba' }, columns: [] },
+      { id: '8', name: 'Proyectos MOTI', type: 'board', url: 'x', workspace: { name: 'Plantilla Proyectos MOTI' }, columns: [] },
+      { id: '9', name: 'T1. Gestión de Dique ROXANA', type: 'board', url: 'x', workspace: { name: 'DIQUE SECO' }, columns: [] },
     ],
     itemsByBoard: {},
   };
@@ -203,6 +206,9 @@ test('manda plantillas y tableros de prueba fuera de los indicadores', () => {
   assert.equal(sec[config.portfolio.boardId], 'portafolio', 'el portafolio real no es plantilla');
   assert.equal(sec['5'], 'proyectos');
   assert.ok(!sec['6'], 'los tableros privados no se publican');
+  assert.equal(sec['7'], 'plantillas', 'espacio de prueba');
+  assert.equal(sec['8'], 'plantillas', 'espacio de plantilla');
+  assert.equal(sec['9'], 'otros-espacios');
 });
 
 test('resume la semana: completadas, nuevas, próximas y avance de hace 7 días', () => {
