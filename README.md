@@ -11,6 +11,16 @@ Dashboard en vivo con el estado de **todos** los tableros de Monday de la PMO: a
 
 Los tableros nuevos aparecen solos: no hay que registrarlos en ningún lado.
 
+## Dashboard de diques
+
+La pestaña **Diques** (`diques.html`) muestra todo lo de los espacios de trabajo de dique (`config.diques.workspaces`):
+
+- Indicadores: próximo dique, monto incurrido, imprevistos por decidir, pagos pendientes y programa de la flota.
+- Una tarjeta por buque con su cronograma (fechas reales contra línea base, fases atrasadas o que debieron iniciar), costos (presupuesto, proyectado e incurrido), órdenes de compra por estado de pago, cambios e imprevistos, actividades del plan, planificación de trabajos y centros de costo.
+- El programa de diques de la flota con fechas mandatorias, programadas y costo estimado por año.
+
+Cada tablero se reconoce por su nombre (T1/D1 gestión o plan, T2/D2 cambios, T4/D3 compras, P1-P3 planificación, Cronograma, Centros de Costo, Plan de Trabajos, PROGRAMA DE DIQUES) y cada buque por la carpeta o el nombre del tablero. Si un buque tiene tableros operativos y copias de migración o prueba (`config.diques.testFolders`), se usan los operativos.
+
 ## Reporte semanal en PDF
 
 El botón **Reporte semanal PDF** del tablero descarga un reporte de los últimos 7 días, generado en la misma actualización que los datos del tablero:

@@ -107,6 +107,10 @@ button { font: inherit; color: inherit; }
 .report-btn:hover { text-decoration: none; background: var(--surface-2); }
 .report-btn svg { color: var(--ink-2); }
 .report-fmt { color: var(--muted); font-size: 11px; font-weight: 600; margin-left: 2px; }
+.tabs { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); }
+.tabs a { padding: 4px 14px; border-radius: 999px; color: var(--ink-2); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.tabs a:hover { text-decoration: none; color: var(--ink); background: var(--surface-2); }
+.tabs a[aria-current="page"] { background: var(--ink); color: var(--surface); }
 .icon-btn {
   display: inline-grid; place-items: center;
   width: 34px; height: 34px; border-radius: 50%;

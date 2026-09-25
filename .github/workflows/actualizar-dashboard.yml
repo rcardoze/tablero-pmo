@@ -35,7 +35,7 @@ jobs:
           cache: npm
 
       - name: Pruebas
-        run: node --test scripts/transform.test.mjs
+        run: node --test scripts/transform.test.mjs scripts/diques.test.mjs
 
       - name: Leer Monday
         env:

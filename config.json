@@ -83,5 +83,10 @@
     "98309222": "Ramon Cardoze"
   },
 
-  "staleDays": 21
+  "staleDays": 21,
+
+  "diques": {
+    "workspaces": "dique",
+    "testFolders": "migraci|prueba"
+  }
 }

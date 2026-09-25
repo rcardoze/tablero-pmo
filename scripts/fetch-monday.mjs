@@ -4,9 +4,11 @@ import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDashboard, pickStatusColumn, pickDueColumn, pickPeopleColumn } from './transform.mjs';
+import { buildDiques } from './diques.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, process.env.OUT_FILE ?? 'site/data.json');
+const OUT_DIQUES = resolve(dirname(OUT), 'diques.json');
 const TOKEN = process.env.MONDAY_API_TOKEN;
 const API_VERSION = process.env.MONDAY_API_VERSION || '';
 const CONCURRENCY = 2;
@@ -133,6 +135,62 @@ function makeBatches(jobs) {
   return batches;
 }
 
+// Tableros de dique: se leen con todas sus columnas (montos, fechas, reflejos y fórmulas)
+const FULL_ITEMS = `cursor items {
+  id name url created_at updated_at group { id } parent_item { id }
+  column_values(capabilities: [CALCULATED]) { id type text value
+    ... on FormulaValue { display_value }
+    ... on MirrorValue { display_value } }
+}`;
+const FULL_FIRST = `query ($ids: [ID!]) {
+  boards(ids: $ids) { id url columns { id title type settings_str } groups { id title }
+    items_page(limit: 500, hierarchy_scope_config: "allItems") { ${FULL_ITEMS} } }
+}`;
+const FULL_NEXT = `query ($cursor: String!) { next_items_page(limit: 500, cursor: $cursor) { ${FULL_ITEMS} } }`;
+
+async function fetchFullBoards(list) {
+  const batches = [];
+  let cur = [];
+  let size = 0;
+  for (const b of list) {
+    if (cur.length && (cur.length >= 5 || size + (b.items_count ?? 0) > 300)) {
+      batches.push(cur);
+      cur = [];
+      size = 0;
+    }
+    cur.push(b);
+    size += b.items_count ?? 0;
+  }
+  if (cur.length) batches.push(cur);
+
+  const out = [];
+  for (const batch of batches) {
+    const data = await gql(FULL_FIRST, { ids: batch.map((b) => b.id) });
+    for (const full of data.boards ?? []) {
+      const meta = batch.find((b) => String(b.id) === String(full.id));
+      const items = [];
+      let page = full.items_page;
+      while (page) {
+        items.push(...page.items);
+        if (!page.cursor) break;
+        page = (await gql(FULL_NEXT, { cursor: page.cursor })).next_items_page;
+      }
+      out.push({
+        id: full.id,
+        name: meta.name,
+        url: full.url,
+        workspace: meta.workspace?.name,
+        folder: meta.folder?.name,
+        parentFolder: meta.folder?.parent?.name,
+        columns: full.columns,
+        groups: full.groups,
+        items,
+      });
+    }
+  }
+  return out;
+}
+
 async function mapLimit(list, limit, fn) {
   const out = [];
   let i = 0;
@@ -189,9 +247,26 @@ async function main() {
     }
   });
 
-  const data = buildDashboard({ boards, itemsByBoard, users, errors }, config, new Date());
+  const now = new Date();
+  const data = buildDashboard({ boards, itemsByBoard, users, errors }, config, now);
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(data));
+
+  // Dashboard de diques: si falla, el tablero PMO se publica igual y la página de diques avisa
+  let diquesLine = '- Diques: no configurado';
+  if (config.diques?.workspaces) {
+    const re = new RegExp(config.diques.workspaces, 'i');
+    const list = boards.filter((b) => re.test(b.workspace?.name ?? ''));
+    try {
+      const diques = buildDiques(await fetchFullBoards(list), config, now);
+      await writeFile(OUT_DIQUES, JSON.stringify(diques));
+      diquesLine = `- Diques: ${diques.buques.length} buques · ${list.length} tableros${diques.sinBuque.length ? ` · sin buque: ${diques.sinBuque.join(', ')}` : ''}`;
+    } catch (e) {
+      console.warn(`No se pudieron leer los tableros de dique: ${e.message}`);
+      await writeFile(OUT_DIQUES, JSON.stringify({ generatedAt: now.toISOString(), error: e.message }));
+      diquesLine = `- Diques: error (${e.message})`;
+    }
+  }
 
   const t = data.totals;
   const summary = [
@@ -201,6 +276,7 @@ async function main() {
     `- Avance proyectos activos: ${t.avance == null ? '—' : Math.round(t.avance * 100) + '%'}`,
     `- Detenidas: ${t.stuck} · vencidas: ${t.overdue}`,
     `- Personas con entregables: ${data.people.length} · sin responsable: ${data.unassigned.open}`,
+    diquesLine,
     `- Errores: ${errors.length}${errors.map((e) => `\n  - ${e.board}: ${e.message}`).join('')}`,
     `- Consultas a Monday: ${calls} · duración: ${Math.round((Date.now() - started) / 1000)} s`,
   ].join('\n');
